@@ -3,12 +3,14 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   ScrollView,
   StyleSheet,
+  Button,
   Switch,
-  Image,
+  TouchableOpacity,
+  Dimensions,
 } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
 import moment from 'moment';
 
 const moodOptions = [
@@ -19,161 +21,202 @@ const moodOptions = [
   { emoji: '😎', label: 'Cool' },
 ];
 
+const moodToScore = {
+  Happy: 5,
+  Cool: 4,
+  Tired: 3,
+  Sad: 2,
+  Angry: 1,
+};
+
 export default function App() {
-  const [name, setName] = useState('');
+  const [date, setDate] = useState('');
   const [selectedMood, setSelectedMood] = useState(null);
-  const [moodHistory, setMoodHistory] = useState([]);
+  const [moodData, setMoodData] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
 
-  const addMood = () => {
-    if (!selectedMood) return;
-    const entry = {
-      mood: selectedMood,
-      time: moment().format('MMMM Do, h:mm a'),
-      user: name || 'Anonymous',
+  const handleSaveMood = () => {
+    if (!selectedMood || !date.trim()) return;
+
+    const formattedDate = moment(date, 'YYYY-MM-DD', true);
+    if (!formattedDate.isValid()) {
+      alert('Please enter a valid date in YYYY-MM-DD format');
+      return;
+    }
+
+    const newEntry = {
+      date: formattedDate.format('MMM D'),
+      mood: selectedMood.label,
+      score: moodToScore[selectedMood.label],
     };
-    setMoodHistory([entry, ...moodHistory]);
+
+    setMoodData([...moodData, newEntry]);
     setSelectedMood(null);
+    setDate('');
   };
 
-  const styles = createStyles(darkMode);
+  const theme = darkMode ? styles.dark : styles.light;
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>🌤 Mood Tracker</Text>
-        <View style={styles.switchRow}>
-          <Text style={styles.label}>Dark Mode</Text>
-          <Switch value={darkMode} onValueChange={setDarkMode} />
-        </View>
+    <ScrollView style={[styles.container, theme.background]}>
+      <View style={styles.headerSpacer} />
+
+      <Text style={[styles.title, theme.text]}>📊 Mood Tracker</Text>
+
+      <View style={styles.switchContainer}>
+        <Text style={theme.text}>Dark Mode</Text>
+        <Switch value={darkMode} onValueChange={setDarkMode} />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Your name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your name"
-          value={name}
-          onChangeText={setName}
-          placeholderTextColor={darkMode ? '#aaa' : '#555'}
-        />
-      </View>
+      <TextInput
+        style={[styles.input, theme.input]}
+        placeholder="Enter Date (YYYY-MM-DD)"
+        placeholderTextColor={darkMode ? '#aaa' : '#999'}
+        value={date}
+        onChangeText={setDate}
+      />
 
-      <Text style={styles.label}>How are you feeling today?</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.moodRow}>
-        {moodOptions.map((mood, index) => (
-          <View key={index} style={styles.moodItem}>
-            <Text
-              style={[
-                styles.moodEmoji,
-                selectedMood?.label === mood.label && styles.selectedMood,
-              ]}
-              onPress={() => setSelectedMood(mood)}
-            >
-              {mood.emoji}
-            </Text>
-            <Text style={styles.moodLabel}>{mood.label}</Text>
-          </View>
+      <Text style={[styles.subtitle, theme.text]}>How are you feeling?</Text>
+
+      <View style={styles.moodRow}>
+        {moodOptions.map((mood) => (
+          <TouchableOpacity
+            key={mood.label}
+            style={[
+              styles.moodButton,
+              selectedMood?.label === mood.label && styles.moodSelected,
+            ]}
+            onPress={() => setSelectedMood(mood)}
+          >
+            <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+          </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
-      <Button title="Save Mood" onPress={addMood} />
+      <Button title="Save Mood" onPress={handleSaveMood} />
 
-      <Text style={styles.historyTitle}>Mood History</Text>
-      {moodHistory.map((entry, index) => (
-        <View key={index} style={styles.historyItem}>
-          <Text style={styles.historyText}>
-            {entry.user} felt {entry.mood.label} {entry.mood.emoji} at {entry.time}
+      {moodData.length > 0 && (
+        <View style={styles.chartContainer}>
+          <Text style={[styles.chartTitle, theme.text]}>Mood Overview</Text>
+          <LineChart
+            data={{
+              labels: moodData.map((item) => item.date),
+              datasets: [
+                {
+                  data: moodData.map((item) => item.score),
+                },
+              ],
+            }}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            yAxisLabel=""
+            yAxisSuffix=""
+            fromZero
+            yLabelsOffset={10}
+            chartConfig={{
+              backgroundColor: darkMode ? '#333' : '#fff',
+              backgroundGradientFrom: darkMode ? '#333' : '#fff',
+              backgroundGradientTo: darkMode ? '#222' : '#f9f9f9',
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+              labelColor: () => darkMode ? '#fff' : '#000',
+              style: {
+                borderRadius: 8,
+              },
+              propsForDots: {
+                r: '5',
+                strokeWidth: '2',
+                stroke: '#007AFF',
+              },
+            }}
+            bezier
+            style={{
+              borderRadius: 8,
+              marginVertical: 10,
+            }}
+          />
+          <Text style={[styles.scaleLabel, theme.text]}>
+            1 = Angry | 2 = Sad | 3 = Tired | 4 = Cool | 5 = Happy
           </Text>
         </View>
-      ))}
-
-      <Image
-        source={{
-          uri: 'https://cdn-icons-png.flaticon.com/512/1684/1684375.png',
-        }}
-        style={styles.footerImage}
-      />
+      )}
     </ScrollView>
   );
 }
 
-const createStyles = (darkMode) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      padding: 20,
-      backgroundColor: darkMode ? '#1e1e1e' : '#f8f8f8',
-    },
-    header: {
-      marginBottom: 20,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: darkMode ? '#fff' : '#333',
-    },
-    switchRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: 10,
-    },
-    label: {
-      fontSize: 16,
-      color: darkMode ? '#ddd' : '#333',
-    },
-    inputGroup: {
-      marginVertical: 20,
-    },
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+    paddingTop: 50,
+  },
+  headerSpacer: {
+    height: 30,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  subtitle: {
+    fontSize: 18,
+    marginVertical: 10,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  input: {
+    borderWidth: 1,
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  moodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 10,
+  },
+  moodButton: {
+    padding: 10,
+  },
+  moodSelected: {
+    backgroundColor: '#cce5ff',
+    borderRadius: 10,
+  },
+  moodEmoji: {
+    fontSize: 28,
+  },
+  chartContainer: {
+    marginTop: 30,
+    alignItems: 'center',
+  },
+  chartTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  scaleLabel: {
+    fontSize: 12,
+    marginTop: 5,
+  },
+  dark: {
+    background: { backgroundColor: '#121212' },
+    text: { color: '#fff' },
     input: {
-      borderWidth: 1,
-      borderColor: darkMode ? '#555' : '#ccc',
-      backgroundColor: darkMode ? '#2b2b2b' : '#fff',
-      color: darkMode ? '#fff' : '#000',
-      padding: 10,
-      borderRadius: 5,
-      marginTop: 5,
+      borderColor: '#555',
+      backgroundColor: '#222',
+      color: '#fff',
     },
-    moodRow: {
-      flexDirection: 'row',
-      marginVertical: 10,
+  },
+  light: {
+    background: { backgroundColor: '#fff' },
+    text: { color: '#000' },
+    input: {
+      borderColor: '#ccc',
+      backgroundColor: '#fff',
+      color: '#000',
     },
-    moodItem: {
-      alignItems: 'center',
-      marginHorizontal: 10,
-    },
-    moodEmoji: {
-      fontSize: 36,
-      padding: 10,
-      borderRadius: 10,
-    },
-    selectedMood: {
-      backgroundColor: '#7c83fd',
-    },
-    moodLabel: {
-      color: darkMode ? '#ddd' : '#555',
-      fontSize: 14,
-      marginTop: 5,
-    },
-    historyTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      marginTop: 30,
-      marginBottom: 10,
-      color: darkMode ? '#fff' : '#333',
-    },
-    historyItem: {
-      marginBottom: 8,
-    },
-    historyText: {
-      color: darkMode ? '#ccc' : '#333',
-    },
-    footerImage: {
-      width: 80,
-      height: 80,
-      alignSelf: 'center',
-      marginTop: 30,
-      opacity: 0.7,
-    },
-  });
+  },
+});
