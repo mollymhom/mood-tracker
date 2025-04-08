@@ -2,179 +2,128 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   StyleSheet,
   Button,
+  Image,
   Switch,
+  TextInput,
   TouchableOpacity,
 } from 'react-native';
-import moment from 'moment';
+import Collapsible from 'react-native-collapsible';
 
-const moodOptions = [
-  { emoji: '😊', label: 'Happy' },
-  { emoji: '😢', label: 'Sad' },
-  { emoji: '😡', label: 'Angry' },
-  { emoji: '😴', label: 'Tired' },
-  { emoji: '😎', label: 'Cool' },
+const recipes = [
+  {
+    title: 'Spaghetti Carbonara',
+    image: 'https://images.unsplash.com/photo-1588013273468-315fd88ea34c?q=80&w=3269&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    ingredients: ['Spaghetti', 'Eggs', 'Pancetta', 'Parmesan', 'Pepper'],
+    steps: ['Boil pasta', 'Fry pancetta', 'Mix eggs & cheese', 'Combine all'],
+  },
+  {
+    title: 'Thai Green Curry',
+    image: 'https://plus.unsplash.com/premium_photo-1713089366140-814130d69933?q=80&w=3270&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    ingredients: ['Green curry paste', 'Coconut milk', 'Chicken', 'Basil', 'Vegetables'],
+    steps: ['Cook paste', 'Add coconut milk', 'Add chicken', 'Simmer', 'Garnish with basil'],
+  },
+  {
+    title: 'Banana Pancakes',
+    image: 'https://plus.unsplash.com/premium_photo-1692193554212-6a27903ab9c4?q=80&w=3270&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    ingredients: ['Bananas', 'Flour', 'Eggs', 'Milk', 'Maple syrup'],
+    steps: ['Mash banana', 'Mix batter', 'Cook on pan', 'Serve with syrup'],
+  },
 ];
 
 export default function App() {
-  const [date, setDate] = useState('');
-  const [selectedMood, setSelectedMood] = useState(null);
-  const [moodData, setMoodData] = useState([]);
+  const [expandedIndex, setExpandedIndex] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
-
-  const handleSaveMood = () => {
-    if (!selectedMood || !moment(date, 'YYYY-MM-DD', true).isValid()) return;
-
-    const newEntry = {
-      mood: selectedMood,
-      date: moment(date).startOf('day'),
-    };
-    setMoodData([...moodData, newEntry]);
-    setSelectedMood(null);
-    setDate('');
-  };
-
-  const getWeeklySummary = () => {
-    const thisWeek = moment().startOf('isoWeek');
-    const filtered = moodData.filter(entry =>
-      moment(entry.date).isSameOrAfter(thisWeek)
-    );
-
-    const total = filtered.length;
-    const counts = {};
-    filtered.forEach(entry => {
-      counts[entry.mood.label] = (counts[entry.mood.label] || 0) + 1;
-    });
-
-    return moodOptions.map(({ label, emoji }) => {
-      const count = counts[label] || 0;
-      const percent = total ? ((count / total) * 100).toFixed(0) : 0;
-      return { label, emoji, percent };
-    });
-  };
-
-  const getRecommendation = () => {
-    const summary = getWeeklySummary();
-    const most = summary.sort((a, b) => b.percent - a.percent)[0];
-    if (!most || most.percent === '0') return 'Start logging your moods!';
-    switch (most.label) {
-      case 'Sad': return 'Consider talking to someone or taking a walk 🌿';
-      case 'Angry': return 'Try calming activities like breathing or music 🎧';
-      case 'Tired': return 'Make sure you are getting enough sleep 😴';
-      case 'Happy': return 'Keep doing what you love! 😊';
-      case 'Cool': return 'You’re chill — spread the vibes! 😎';
-      default: return '';
-    }
-  };
+  const [search, setSearch] = useState('');
 
   const theme = darkMode ? styles.dark : styles.light;
 
+  const filteredRecipes = recipes.filter((r) =>
+    r.title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const toggleExpand = (index) => {
+    setExpandedIndex(expandedIndex === index ? null : index);
+  };
+
   return (
     <ScrollView style={[styles.container, theme.background]}>
-      <View style={{ height: 60 }} />
-      <Text style={[styles.title, theme.text]}>📊 Mood Tracker</Text>
+      <Text style={[styles.title, theme.text]}>📖 Recipe Viewer</Text>
 
-      <View style={styles.switchContainer}>
+      <View style={styles.switchRow}>
         <Text style={theme.text}>Dark Mode</Text>
         <Switch value={darkMode} onValueChange={setDarkMode} />
       </View>
 
       <TextInput
         style={[styles.input, theme.input]}
-        placeholder="Enter date (YYYY-MM-DD)"
+        placeholder="Search recipes..."
         placeholderTextColor={darkMode ? '#aaa' : '#999'}
-        value={date}
-        onChangeText={setDate}
+        value={search}
+        onChangeText={setSearch}
       />
 
-      <Text style={[styles.subtitle, theme.text]}>How are you feeling?</Text>
-
-      <View style={styles.moodRow}>
-        {moodOptions.map((mood) => (
-          <TouchableOpacity
-            key={mood.label}
-            style={[
-              styles.moodButton,
-              selectedMood?.label === mood.label && styles.moodSelected,
-            ]}
-            onPress={() => setSelectedMood(mood)}
-          >
-            <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Button title="Save Mood" onPress={handleSaveMood} />
-
-      <View style={styles.summaryBox}>
-        <Text style={[styles.subtitle, theme.text]}>This Week's Mood Summary</Text>
-        {getWeeklySummary().map((item, index) => (
-          <Text key={index} style={[styles.summaryText, theme.text]}>
-            {item.emoji} {item.label}: {item.percent}%
-          </Text>
-        ))}
-      </View>
-
-      <Text style={[styles.subtitle, theme.text]}>💡 Recommendation</Text>
-      <Text style={[theme.text, { marginBottom: 40 }]}>{getRecommendation()}</Text>
+      {filteredRecipes.map((recipe, index) => (
+        <View key={index} style={styles.card}>
+          <Image source={{ uri: recipe.image }} style={styles.image} />
+          <Text style={[styles.recipeTitle, theme.text]}>{recipe.title}</Text>
+          <Button
+            title={expandedIndex === index ? 'Hide Details' : 'Show Details'}
+            onPress={() => toggleExpand(index)}
+          />
+          <Collapsible collapsed={expandedIndex !== index}>
+            <Text style={[styles.subtitle, theme.text]}>Ingredients:</Text>
+            {recipe.ingredients.map((item, i) => (
+              <Text key={i} style={theme.text}>• {item}</Text>
+            ))}
+            <Text style={[styles.subtitle, theme.text]}>Steps:</Text>
+            {recipe.steps.map((item, i) => (
+              <Text key={i} style={theme.text}>{i + 1}. {item}</Text>
+            ))}
+          </Collapsible>
+        </View>
+      ))}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginVertical: 10,
-  },
-  switchContainer: {
+  container: { padding: 20, paddingTop: 50 },
+  title: { fontSize: 28, fontWeight: '700', textAlign: 'center', marginBottom: 20 },
+  switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    alignItems: 'center',
+    marginBottom: 15,
   },
   input: {
     borderWidth: 1,
-    padding: 10,
     borderRadius: 6,
-    marginBottom: 10,
-  },
-  moodRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 10,
-  },
-  moodButton: {
     padding: 10,
+    marginBottom: 15,
   },
-  moodSelected: {
-    backgroundColor: '#cce5ff',
+  card: {
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#f3f3f3',
     borderRadius: 10,
   },
-  moodEmoji: {
-    fontSize: 28,
+  image: {
+    width: '100%',
+    height: 180,
+    borderRadius: 10,
+    marginBottom: 10,
   },
-  summaryBox: {
-    marginVertical: 20,
-    backgroundColor: '#eee',
-    padding: 10,
-    borderRadius: 6,
+  recipeTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 10,
   },
-  summaryText: {
-    fontSize: 16,
-    marginVertical: 4,
+  subtitle: {
+    marginTop: 10,
+    fontWeight: '600',
   },
   dark: {
     background: { backgroundColor: '#121212' },
