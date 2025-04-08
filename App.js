@@ -8,9 +8,7 @@ import {
   Button,
   Switch,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
 import moment from 'moment';
 
 const moodOptions = [
@@ -21,14 +19,6 @@ const moodOptions = [
   { emoji: '😎', label: 'Cool' },
 ];
 
-const moodToScore = {
-  Happy: 5,
-  Cool: 4,
-  Tired: 3,
-  Sad: 2,
-  Angry: 1,
-};
-
 export default function App() {
   const [date, setDate] = useState('');
   const [selectedMood, setSelectedMood] = useState(null);
@@ -36,31 +26,55 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
 
   const handleSaveMood = () => {
-    if (!selectedMood || !date.trim()) return;
-
-    const formattedDate = moment(date, 'YYYY-MM-DD', true);
-    if (!formattedDate.isValid()) {
-      alert('Please enter a valid date in YYYY-MM-DD format');
-      return;
-    }
+    if (!selectedMood || !moment(date, 'YYYY-MM-DD', true).isValid()) return;
 
     const newEntry = {
-      date: formattedDate.format('MMM D'),
-      mood: selectedMood.label,
-      score: moodToScore[selectedMood.label],
+      mood: selectedMood,
+      date: moment(date).startOf('day'),
     };
-
     setMoodData([...moodData, newEntry]);
     setSelectedMood(null);
     setDate('');
+  };
+
+  const getWeeklySummary = () => {
+    const thisWeek = moment().startOf('isoWeek');
+    const filtered = moodData.filter(entry =>
+      moment(entry.date).isSameOrAfter(thisWeek)
+    );
+
+    const total = filtered.length;
+    const counts = {};
+    filtered.forEach(entry => {
+      counts[entry.mood.label] = (counts[entry.mood.label] || 0) + 1;
+    });
+
+    return moodOptions.map(({ label, emoji }) => {
+      const count = counts[label] || 0;
+      const percent = total ? ((count / total) * 100).toFixed(0) : 0;
+      return { label, emoji, percent };
+    });
+  };
+
+  const getRecommendation = () => {
+    const summary = getWeeklySummary();
+    const most = summary.sort((a, b) => b.percent - a.percent)[0];
+    if (!most || most.percent === '0') return 'Start logging your moods!';
+    switch (most.label) {
+      case 'Sad': return 'Consider talking to someone or taking a walk 🌿';
+      case 'Angry': return 'Try calming activities like breathing or music 🎧';
+      case 'Tired': return 'Make sure you are getting enough sleep 😴';
+      case 'Happy': return 'Keep doing what you love! 😊';
+      case 'Cool': return 'You’re chill — spread the vibes! 😎';
+      default: return '';
+    }
   };
 
   const theme = darkMode ? styles.dark : styles.light;
 
   return (
     <ScrollView style={[styles.container, theme.background]}>
-      <View style={styles.headerSpacer} />
-
+      <View style={{ height: 60 }} />
       <Text style={[styles.title, theme.text]}>📊 Mood Tracker</Text>
 
       <View style={styles.switchContainer}>
@@ -70,7 +84,7 @@ export default function App() {
 
       <TextInput
         style={[styles.input, theme.input]}
-        placeholder="Enter Date (YYYY-MM-DD)"
+        placeholder="Enter date (YYYY-MM-DD)"
         placeholderTextColor={darkMode ? '#aaa' : '#999'}
         value={date}
         onChangeText={setDate}
@@ -95,51 +109,17 @@ export default function App() {
 
       <Button title="Save Mood" onPress={handleSaveMood} />
 
-      {moodData.length > 0 && (
-        <View style={styles.chartContainer}>
-          <Text style={[styles.chartTitle, theme.text]}>Mood Overview</Text>
-          <LineChart
-            data={{
-              labels: moodData.map((item) => item.date),
-              datasets: [
-                {
-                  data: moodData.map((item) => item.score),
-                },
-              ],
-            }}
-            width={Dimensions.get('window').width - 40}
-            height={220}
-            yAxisLabel=""
-            yAxisSuffix=""
-            fromZero
-            yLabelsOffset={10}
-            chartConfig={{
-              backgroundColor: darkMode ? '#333' : '#fff',
-              backgroundGradientFrom: darkMode ? '#333' : '#fff',
-              backgroundGradientTo: darkMode ? '#222' : '#f9f9f9',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-              labelColor: () => darkMode ? '#fff' : '#000',
-              style: {
-                borderRadius: 8,
-              },
-              propsForDots: {
-                r: '5',
-                strokeWidth: '2',
-                stroke: '#007AFF',
-              },
-            }}
-            bezier
-            style={{
-              borderRadius: 8,
-              marginVertical: 10,
-            }}
-          />
-          <Text style={[styles.scaleLabel, theme.text]}>
-            1 = Angry | 2 = Sad | 3 = Tired | 4 = Cool | 5 = Happy
+      <View style={styles.summaryBox}>
+        <Text style={[styles.subtitle, theme.text]}>This Week's Mood Summary</Text>
+        {getWeeklySummary().map((item, index) => (
+          <Text key={index} style={[styles.summaryText, theme.text]}>
+            {item.emoji} {item.label}: {item.percent}%
           </Text>
-        </View>
-      )}
+        ))}
+      </View>
+
+      <Text style={[styles.subtitle, theme.text]}>💡 Recommendation</Text>
+      <Text style={[theme.text, { marginBottom: 40 }]}>{getRecommendation()}</Text>
     </ScrollView>
   );
 }
@@ -147,10 +127,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    paddingTop: 50,
-  },
-  headerSpacer: {
-    height: 30,
+    paddingTop: 40,
   },
   title: {
     fontSize: 28,
@@ -160,6 +137,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 18,
+    fontWeight: '600',
     marginVertical: 10,
   },
   switchContainer: {
@@ -188,18 +166,15 @@ const styles = StyleSheet.create({
   moodEmoji: {
     fontSize: 28,
   },
-  chartContainer: {
-    marginTop: 30,
-    alignItems: 'center',
+  summaryBox: {
+    marginVertical: 20,
+    backgroundColor: '#eee',
+    padding: 10,
+    borderRadius: 6,
   },
-  chartTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  scaleLabel: {
-    fontSize: 12,
-    marginTop: 5,
+  summaryText: {
+    fontSize: 16,
+    marginVertical: 4,
   },
   dark: {
     background: { backgroundColor: '#121212' },
